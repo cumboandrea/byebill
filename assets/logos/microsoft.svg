@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 947 947" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g id="Mesa-de-trabajo2" serif:id="Mesa de trabajo2" transform="matrix(1,0,0,1,3973,4259)">
+        <rect x="-3973" y="-4259" width="947" height="947" style="fill:none;"/>
+        <g transform="matrix(1,0,0,1,-3973,-4259)">
+            <g transform="matrix(0.896643,0,0,0.896643,-77.526526,-203.201941)">
+                <path d="M246.46,375.541L602.731,375.541C602.71,494.298 602.731,613.055 602.71,731.812L246.46,731.812L246.46,375.541Z" style="fill:rgb(241,93,51);fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(0.896643,0,0,0.896643,-77.526526,-203.201941)">
+                <path d="M246.46,768.167C365.217,768.209 483.974,768.145 602.731,768.209C602.753,886.966 602.731,1005.7 602.731,1124.46L246.46,1124.46L246.46,768.167Z" style="fill:rgb(31,160,218);fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(0.896643,0,0,0.896643,-77.526526,-203.201941)">
+                <path d="M639.107,375.541L995.379,375.541C995.379,494.298 995.4,613.055 995.357,731.812C876.622,731.791 757.865,731.812 639.129,731.812C639.086,613.055 639.107,494.298 639.107,375.541Z" style="fill:rgb(120,193,67);fill-rule:nonzero;"/>
+            </g>
+            <g transform="matrix(0.896643,0,0,0.896643,-77.526526,-203.201941)">
+                <path d="M639.129,768.209C757.865,768.167 876.622,768.188 995.379,768.188L995.379,1124.46L639.107,1124.46C639.129,1005.7 639.086,886.945 639.129,768.209Z" style="fill:rgb(253,182,43);fill-rule:nonzero;"/>
+            </g>
+        </g>
+    </g>
+</svg>
