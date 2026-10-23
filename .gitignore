@@ -49,6 +49,9 @@ android/key.properties
 android/app/upload-keystore.jks
 android/app/google-services.json
 
+# Páginas legales (se publican desde el repo público cumboandrea/byebill)
+/legal/
+
 # Widget Preview related
 .widget_preview/
 *.af~lock~
