@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Icono pequeño de notificación de ByeBill (silueta de la "B").
+  Android renderiza el small icon como silueta monocroma: se muestra en blanco
+  en la barra de estado y tintado con el color de la notificación en el shade.
+  Se usa en NotificationService (AndroidInitializationSettings y
+  AndroidNotificationDetails) en lugar del launcher_icon, que al ser a todo
+  color se convertía en un borrón oscuro.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="206"
+    android:viewportHeight="220">
+  <path
+      android:fillColor="#FFFFFFFF"
+      android:fillType="evenOdd"
+      android:pathData="M120.379,39.772c9.446,-0 18.506,3.753 25.186,10.432c6.68,6.68 10.432,15.739 10.432,25.186c-0,0.418 -0,0.837 -0,1.255c0,9.446 -3.753,18.506 -10.432,25.186c-6.68,6.68 -15.739,10.432 -25.186,10.432l-91.354,0l0,-41.106c0,-8.324 3.307,-16.307 9.192,-22.193c5.886,-5.886 13.869,-9.192 22.193,-9.192l59.969,-0Z
+      M138.861,118.009c19.493,-0 35.296,15.803 35.296,35.296l0,1.899c-0,19.493 -15.803,35.296 -35.296,35.296l-74.521,-0c-9.491,0 -18.594,-3.77 -25.305,-10.482c-6.711,-6.711 -10.482,-15.814 -10.482,-25.305l-0,-36.704l110.308,0Z
+      M60.389,118.009l33.919,0l0,40.303c0,17.777 -14.411,32.187 -32.187,32.187l-0.004,0c-0.58,-0 -1.156,-0.015 -1.729,-0.046l0,-72.445Z
+      M62.898,118.009l-33.919,0l0,40.303c-0,17.777 14.411,32.187 32.187,32.187l0.004,0c0.58,-0 1.156,-0.015 1.729,-0.046l0,-72.445Z"/>
+</vector>

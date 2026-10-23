@@ -68,7 +68,7 @@ class NotificationService {
     }
 
     const AndroidInitializationSettings android =
-        AndroidInitializationSettings('@mipmap/launcher_icon');
+        AndroidInitializationSettings('@drawable/ic_stat_byebill');
 
     const DarwinInitializationSettings ios = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -297,7 +297,15 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
-    } catch (_) {
+    } catch (e) {
+      // Sin permiso de alarmas exactas (Android 12+ / MIUI) el sistema lanza
+      // una excepción; caer a inexactAllowWhileIdle hace que Android entregue
+      // la alerta "cuando quiera" (retrasos típicos de ~1 h). Se registra el
+      // motivo para diagnóstico; la concesión del permiso se intenta en el
+      // arranque de la app (requestIgnoreBatteryOptimizations).
+      // ignore: avoid_print
+      print('[NOTIF] ⚠️ exactAllowWhileIdle FALLÓ para id=$id en '
+          '$scheduledDate => usando inexact. Error: $e');
       await _plugin.zonedSchedule(
         id,
         title,
@@ -321,7 +329,12 @@ class NotificationService {
     required String body,
     String? logoPath,
   }) async {
-    final AndroidBitmap<Object>? logo = await _resolveLogoBitmap(logoPath);
+    // Si el servicio no tiene logo propio, se usa el logo de ByeBill sobre la
+    // ficha blanca para que la notificación nunca salga sin icono grande.
+    final String effectiveLogo =
+        (logoPath == null || logoPath.isEmpty) ? 'assets/logo_512.png' : logoPath;
+    final AndroidBitmap<Object>? logo =
+        await _resolveLogoBitmap(effectiveLogo);
 
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -330,6 +343,8 @@ class NotificationService {
         channelDescription: AppConstants.notificationChannelDescription,
         importance: Importance.max,
         priority: Priority.high,
+        icon: 'ic_stat_byebill',
+        color: const ui.Color(0xFF146EF5),
         largeIcon: logo,
       ),
       iOS: const DarwinNotificationDetails(

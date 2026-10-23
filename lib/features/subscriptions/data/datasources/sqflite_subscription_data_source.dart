@@ -31,6 +31,8 @@ class SqfliteSubscriptionDataSource implements SubscriptionLocalDataSource {
       DatabaseService.tableSubscriptionsLogoPathCol: s.logoPath,
       DatabaseService.tableSubscriptionsStartDateCol:
           s.startDate?.millisecondsSinceEpoch,
+      DatabaseService.tableSubscriptionsCategoryCol: s.category,
+      DatabaseService.tableSubscriptionsDescriptionCol: s.description,
     };
   }
 
@@ -67,6 +69,10 @@ class SqfliteSubscriptionDataSource implements SubscriptionLocalDataSource {
       startDate: startDateMs != null
           ? DateTime.fromMillisecondsSinceEpoch(startDateMs)
           : null,
+      category:
+          m[DatabaseService.tableSubscriptionsCategoryCol] as String?,
+      description:
+          m[DatabaseService.tableSubscriptionsDescriptionCol] as String?,
     );
   }
 

@@ -43,7 +43,7 @@ const List<TopService> topServices = [
   ),
   TopService(
     id: 'icloud',
-    name: 'Apple iCloud+',
+    name: 'Apple',
     logoPath: 'assets/logos/apple.svg',
     cancellationUrl: 'https://support.apple.com/es-es/HT202039',
     cancellationText: 'Te llevamos directamente al ajuste de Apple ID o gestionamos la cancelación oficial.',
@@ -151,5 +151,13 @@ const List<TopService> topServices = [
     cancellationUrl: 'https://www.claude.ai/settings/billing',
     cancellationText: 'Accede a la sección de suscripción de tu cuenta de Claude Pro.',
     cancellationInstructions: 'Avatar de usuario → Billing → Manage Subscription → Cancel Plan (efectivo al fin de ciclo).',
+  ),
+  TopService(
+    id: 'elpais',
+    name: 'El Pais',
+    logoPath: 'assets/logos/elpais.svg',
+    cancellationUrl: 'https://www.elpais.com/billing',
+    cancellationText: 'Accede a la sección de suscripción de tu cuenta de El Pais.',
+    cancellationInstructions: 'Avatar de usuario → Mi Suscripción → Cancel Plan (efectivo al fin de ciclo).',
   ),
 ];

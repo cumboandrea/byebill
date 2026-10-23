@@ -11,6 +11,7 @@ import '../providers/permission_controller_provider.dart';
 import '../providers/subscription_list_provider.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/top_services.dart';
+import '../../../../core/constants/service_categories.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../../core/utils/date_utils.dart' as app_date_utils;
@@ -34,9 +35,11 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
   DateTime? _selectedDate;
   late final TextEditingController _startDateController;
   DateTime? _selectedStartDate;
+  late final TextEditingController _descriptionController;
   late SubscriptionType _selectedType;
   late BillingCycle _selectedCycle;
   TopService? _selectedTopService;
+  ServiceCategory? _selectedCategory;
 
   @override
   void initState() {
@@ -55,13 +58,16 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
     _dateController = TextEditingController(
       text: _selectedDate != null ? app_date_utils.formatDate(_selectedDate!) : '',
     );
-    _selectedType = widget.initialSubscription?.type ?? SubscriptionType.freeTrial;
+    _selectedType = widget.initialSubscription?.type ?? SubscriptionType.subscription;
     _selectedCycle = widget.initialSubscription?.cycle ?? BillingCycle.monthly;
     _selectedStartDate = widget.initialSubscription?.startDate;
     _startDateController = TextEditingController(
       text: _selectedStartDate != null
           ? app_date_utils.formatDate(_selectedStartDate!)
           : '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.initialSubscription?.description ?? '',
     );
 
     if (widget.initialSubscription != null) {
@@ -70,6 +76,12 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
             (s) => s.name.toLowerCase() == widget.initialSubscription!.name.toLowerCase() || 
                    s.logoPath == widget.initialSubscription!.logoPath);
       } catch (_) {}
+      if (_selectedTopService == null) {
+        try {
+          _selectedCategory = serviceCategories.firstWhere(
+              (c) => c.iconPath == widget.initialSubscription!.logoPath);
+        } catch (_) {}
+      }
     }
   }
 
@@ -79,14 +91,96 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
     _amountController.dispose();
     _dateController.dispose();
     _startDateController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
   void _onTopServiceSelected(TopService service) {
     setState(() {
       _selectedTopService = service;
+      _selectedCategory = null;
       _nameController.text = service.name;
     });
+  }
+
+  void _onCategorySelected(ServiceCategory category) {
+    setState(() {
+      _selectedCategory = category;
+      _selectedTopService = null;
+      // Si el campo está vacío (o ya tiene el nombre de la categoría),
+      // se autocompleta. El usuario siempre puede refinarlo después.
+      final current = _nameController.text.trim();
+      if (current.isEmpty || current == category.name) {
+        _nameController.text = category.name;
+      }
+    });
+  }
+
+  /// Chip de selección rápida compartido por los servicios TOP y las
+  /// categorías, dentro de una única línea horizontal desplazable.
+  Widget _serviceChip({
+    required String logoPath,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 80,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : AppColors.secondary.withValues(alpha: 0.12),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: logoPath.toLowerCase().endsWith('.svg')
+                  ? SvgPicture.asset(
+                      logoPath,
+                      width: 40,
+                      height: 40,
+                      placeholderBuilder: (context) => const Icon(
+                          Icons.image,
+                          size: 40,
+                          color: AppColors.secondary),
+                    )
+                  : Image.asset(
+                      logoPath,
+                      width: 40,
+                      height: 40,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.broken_image,
+                          size: 40,
+                          color: AppColors.secondary),
+                    ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AppColors.primary : AppColors.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _setDate(DateTime date) {
@@ -203,9 +297,14 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
         type: _selectedType,
         currency: currency,
         cycle: _selectedCycle,
-        cancellationUrl: _selectedTopService?.cancellationUrl,
-        logoPath: _selectedTopService?.logoPath,
+        cancellationUrl: _selectedTopService?.cancellationUrl ??
+            widget.initialSubscription!.cancellationUrl,
+        logoPath: _selectedTopService?.logoPath ??
+            _selectedCategory?.iconPath ??
+            widget.initialSubscription!.logoPath,
         startDate: _selectedStartDate,
+        category: _selectedCategory?.id,
+        description: _descriptionController.text.trim(),
       );
       await ref
           .read(subscriptionListProvider.notifier)
@@ -229,8 +328,11 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
             type: _selectedType,
             cycle: _selectedCycle,
             cancellationUrl: _selectedTopService?.cancellationUrl,
-            logoPath: _selectedTopService?.logoPath,
+            logoPath:
+                _selectedTopService?.logoPath ?? _selectedCategory?.iconPath,
             startDate: _selectedStartDate,
+            category: _selectedCategory?.id,
+            description: _descriptionController.text.trim(),
           );
       if (mounted && isFirstSubscription) {
         try {
@@ -307,57 +409,26 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
                   height: 90,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: topServices.length,
-                    separatorBuilder: (context, index) => const SizedBox(width: 12),
+                    itemCount: topServices.length + serviceCategories.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 12),
                     itemBuilder: (context, index) {
-                      final service = topServices[index];
-                      final isSelected = _selectedTopService?.id == service.id;
-                      return GestureDetector(
-                        onTap: () => _onTopServiceSelected(service),
-                        child: Container(
-                          width: 80,
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected ? AppColors.primary : AppColors.secondary.withValues(alpha: 0.12),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: service.logoPath.toLowerCase().endsWith('.svg')
-                                    ? SvgPicture.asset(
-                                        service.logoPath,
-                                        width: 40,
-                                        height: 40,
-                                        placeholderBuilder: (context) => const Icon(Icons.image, size: 40, color: AppColors.secondary),
-                                      )
-                                    : Image.asset(
-                                        service.logoPath,
-                                        width: 40,
-                                        height: 40,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Icon(Icons.broken_image, size: 40, color: AppColors.secondary),
-                                      ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                service.name,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? AppColors.primary : AppColors.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
+                      if (index < topServices.length) {
+                        final service = topServices[index];
+                        return _serviceChip(
+                          logoPath: service.logoPath,
+                          label: service.name,
+                          isSelected: _selectedTopService?.id == service.id,
+                          onTap: () => _onTopServiceSelected(service),
+                        );
+                      }
+                      final category =
+                          serviceCategories[index - topServices.length];
+                      return _serviceChip(
+                        logoPath: category.iconPath,
+                        label: category.name,
+                        isSelected: _selectedCategory?.id == category.id,
+                        onTap: () => _onCategorySelected(category),
                       );
                     },
                   ),
@@ -377,6 +448,22 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Introduce un nombre' : null,
                 ),
+                const SizedBox(height: 16),
+                _labelText('Descripción (opcional)'),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _descriptionController,
+                  keyboardType: TextInputType.multiline,
+                  maxLength: 200,
+                  maxLines: 3,
+                  minLines: 1,
+                  style: const TextStyle(color: AppColors.onSurface),
+                  decoration: _inputDecoration(
+                    hintText:
+                        'Notas: renovación, tarjeta, contacto del servicio…',
+                    prefixIcon: Icons.notes_outlined,
+                  ),
+                ),
                 const SizedBox(height: 24),
                 const Text(
                   'Tipo',
@@ -391,19 +478,19 @@ class _AddSubscriptionPageState extends ConsumerState<AddSubscriptionPage> {
                   children: [
                     Expanded(
                       child: _TypeCard(
-                        selected: _selectedType == SubscriptionType.freeTrial,
-                        onTap: () =>
-                            setState(() => _selectedType = SubscriptionType.freeTrial),
-                        type: SubscriptionType.freeTrial,
+                        selected: _selectedType == SubscriptionType.subscription,
+                        onTap: () => setState(
+                            () => _selectedType = SubscriptionType.subscription),
+                        type: SubscriptionType.subscription,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _TypeCard(
-                        selected: _selectedType == SubscriptionType.subscription,
-                        onTap: () => setState(
-                            () => _selectedType = SubscriptionType.subscription),
-                        type: SubscriptionType.subscription,
+                        selected: _selectedType == SubscriptionType.freeTrial,
+                        onTap: () =>
+                            setState(() => _selectedType = SubscriptionType.freeTrial),
+                        type: SubscriptionType.freeTrial,
                       ),
                     ),
                   ],

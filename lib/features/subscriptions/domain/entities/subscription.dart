@@ -17,6 +17,8 @@ class Subscription {
     this.cancellationUrl,
     this.logoPath,
     this.startDate,
+    this.category,
+    this.description,
   });
 
   final String id;
@@ -32,6 +34,8 @@ class Subscription {
   final String? cancellationUrl;
   final String? logoPath;
   final DateTime? startDate;
+  final String? category;
+  final String? description;
 
   DateTime get chargeDateAtNine => DateTime(
         chargeDate.year,
@@ -55,6 +59,8 @@ class Subscription {
     String? cancellationUrl,
     String? logoPath,
     DateTime? startDate,
+    String? category,
+    String? description,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -70,6 +76,8 @@ class Subscription {
       cancellationUrl: cancellationUrl ?? this.cancellationUrl,
       logoPath: logoPath ?? this.logoPath,
       startDate: startDate ?? this.startDate,
+      category: category ?? this.category,
+      description: description ?? this.description,
     );
   }
 
@@ -90,7 +98,9 @@ class Subscription {
         other.cancelledAt == cancelledAt &&
         other.cancellationUrl == cancellationUrl &&
         other.logoPath == logoPath &&
-        other.startDate == startDate;
+        other.startDate == startDate &&
+        other.category == category &&
+        other.description == description;
   }
 
   @override
@@ -109,6 +119,8 @@ class Subscription {
       cancellationUrl,
       logoPath,
       startDate,
+      category,
+      description,
     );
   }
 }

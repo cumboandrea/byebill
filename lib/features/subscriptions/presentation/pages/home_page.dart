@@ -12,6 +12,8 @@ import '../providers/monthly_summary_provider.dart';
 import '../providers/alerts_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
+import '../../../../core/services/ad_service.dart';
+import '../../../../core/presentation/widgets/ad_widgets.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/date_utils.dart' as app_date_utils;
 
@@ -99,17 +101,20 @@ class HomePage extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person_outline_rounded,
-              color: Colors.white,
-              size: 20,
+          GestureDetector(
+            onTap: () => context.push('/profile'),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
           const SizedBox(width: 20),
@@ -124,6 +129,8 @@ class HomePage extends ConsumerWidget {
             final summary = ref.watch(monthlySummaryProvider);
             final settingsAsync = ref.watch(settingsProvider);
             final currencySymbol = settingsAsync.valueOrNull?.currency ?? '€';
+            // Anuncio nativo SOLO en la versión FREE.
+            final adsEnabled = ref.watch(adsEnabledProvider);
 
             return ListView(
               physics: const BouncingScrollPhysics(),
@@ -168,7 +175,7 @@ class HomePage extends ConsumerWidget {
                       ),
                       const Spacer(),
                       Text(
-                        AppStrings.homeTrialsCount(expiring.length),
+                        AppStrings.homeExpiringCount(expiring.length),
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -186,6 +193,13 @@ class HomePage extends ConsumerWidget {
                           currencySymbol: currencySymbol,
                         ),
                       )),
+                  const SizedBox(height: 24),
+                ],
+
+                // Anuncio nativo: hueco reservado entre "Atención requerida"
+                // y "Suscripciones activas" (solo versión FREE).
+                if (adsEnabled) ...[
+                  const AdNativeWidget(),
                   const SizedBox(height: 24),
                 ],
 
@@ -595,7 +609,25 @@ void _showAlertsBottomSheet(BuildContext context, List<AppAlert> alerts) {
                           ),
                           child: Row(
                             children: [
-                              Icon(alert.icon, color: iconColor, size: 28),
+                              if (alert.logoPath != null && alert.logoPath!.isNotEmpty)
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: alert.logoPath!.toLowerCase().endsWith('.svg')
+                                      ? SvgPicture.asset(alert.logoPath!, fit: BoxFit.contain)
+                                      : Image.asset(
+                                          alert.logoPath!,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (c, e, s) => Icon(alert.icon, color: iconColor, size: 28),
+                                        ),
+                                )
+                              else
+                                Icon(alert.icon, color: iconColor, size: 28),
                               const SizedBox(width: 16),
                               Expanded(
                                 child: Column(
@@ -752,6 +784,24 @@ class _ActiveTile extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (subscription.type == SubscriptionType.freeTrial) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            AppStrings.freeTrialBadge,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

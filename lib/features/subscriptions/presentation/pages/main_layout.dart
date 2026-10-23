@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/presentation/widgets/ad_widgets.dart';
+import '../../../../core/services/ad_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
@@ -23,10 +25,17 @@ class MainLayout extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(settingsProvider); // watch to rebuild on language change
+    // El banner fijo solo se muestra en la versión FREE.
+    final adsEnabled = ref.watch(adsEnabledProvider);
 
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Banner adaptativo fijo ENCIMA de la barra de navegación (FREE).
+          if (adsEnabled) const AdBannerWidget(),
+          NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _goBranch,
         backgroundColor: Colors.white,
@@ -52,6 +61,8 @@ class MainLayout extends ConsumerWidget {
             selectedIcon: const Icon(Icons.settings, color: AppColors.primary),
             label: AppStrings.t('Ajustes', 'Settings', 'Impostazioni'),
           ),
+        ],
+      ),
         ],
       ),
     );

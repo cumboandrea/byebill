@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 class DatabaseService {
   static const _dbName = 'byebill.db';
-  static const _dbVersion = 4;
+  static const _dbVersion = 5;
 
   static const tableSubscriptions = 'subscriptions';
   static const tableSubscriptionsIdCol = 'id';
@@ -20,6 +20,8 @@ class DatabaseService {
   static const tableSubscriptionsCancellationUrlCol = 'cancellationUrl';
   static const tableSubscriptionsLogoPathCol = 'logoPath';
   static const tableSubscriptionsStartDateCol = 'startDate';
+  static const tableSubscriptionsCategoryCol = 'category';
+  static const tableSubscriptionsDescriptionCol = 'description';
 
   Database? _db;
 
@@ -51,7 +53,9 @@ class DatabaseService {
         $tableSubscriptionsCancelledAtCol INTEGER,
         $tableSubscriptionsCancellationUrlCol TEXT,
         $tableSubscriptionsLogoPathCol TEXT,
-        $tableSubscriptionsStartDateCol INTEGER
+        $tableSubscriptionsStartDateCol INTEGER,
+        $tableSubscriptionsCategoryCol TEXT,
+        $tableSubscriptionsDescriptionCol TEXT
       )
     ''');
   }
@@ -66,6 +70,10 @@ class DatabaseService {
     }
     if (oldVersion < 4) {
       await db.execute('ALTER TABLE $tableSubscriptions ADD COLUMN $tableSubscriptionsStartDateCol INTEGER');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE $tableSubscriptions ADD COLUMN $tableSubscriptionsCategoryCol TEXT');
+      await db.execute('ALTER TABLE $tableSubscriptions ADD COLUMN $tableSubscriptionsDescriptionCol TEXT');
     }
   }
 }

@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
+import '../../domain/enums/billing_cycle.dart';
 import '../providers/savings_provider.dart';
 import '../../../../core/utils/date_utils.dart' as du;
 
@@ -37,7 +38,9 @@ class SavingsPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
         error: (err, stack) => Center(child: Text(AppStrings.generalError)),
         data: (data) {
-          if (data.totalSavedAllTime <= 0) {
+          if (data.totalSavedAllTime <= 0 &&
+              data.totalSpentThisYear <= 0 &&
+              data.activeMonthlySpend <= 0) {
             return _buildEmptyState();
           }
 
@@ -46,7 +49,7 @@ class SavingsPage extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildKpiHeader(data, currencySymbol),
+                _buildKpiHeader(context, data, currencySymbol),
                 _buildSpendEvolutionSection(data, currencySymbol),
                 const SizedBox(height: 24),
                 _buildChartSection(data, currencySymbol),
@@ -103,7 +106,7 @@ class SavingsPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildKpiHeader(SavingsData data, String currencySymbol) {
+  Widget _buildKpiHeader(BuildContext context, SavingsData data, String currencySymbol) {
     return Column(
       children: [
         Container(
@@ -154,6 +157,68 @@ class SavingsPage extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+        GestureDetector(
+          onTap: data.totalSpentThisYear > 0
+              ? () => _showBreakdownSheet(
+                    context,
+                    AppStrings.savingsSpentThisYear,
+                    data.spendByServiceThisYear,
+                    currencySymbol,
+                    isSavings: false,
+                  )
+              : null,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFF263238),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blueGrey.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.trending_down, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      AppStrings.savingsSpentThisYear,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    // Indicador de que la tarjeta es interactiva (desglose).
+                    Icon(
+                      Icons.chevron_right,
+                      color: data.totalSpentThisYear > 0 ? Colors.white70 : Colors.transparent,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  du.formatCurrency(data.totalSpentThisYear, currencySymbol),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
@@ -162,6 +227,14 @@ class SavingsPage extends ConsumerWidget {
                 amount: data.totalSavedThisMonth,
                 currencySymbol: currencySymbol,
                 icon: Icons.calendar_today,
+                onTap: data.totalSavedThisMonth > 0
+                    ? () => _showBreakdownSheet(
+                          context,
+                          AppStrings.savingsThisMonth,
+                          data.savingsByServiceThisMonth,
+                          currencySymbol,
+                        )
+                    : null,
               ),
             ),
             const SizedBox(width: 16),
@@ -172,11 +245,185 @@ class SavingsPage extends ConsumerWidget {
                 currencySymbol: currencySymbol,
                 icon: Icons.emoji_events_outlined,
                 isHighlight: true,
+                onTap: data.totalSavedThisYear > 0
+                    ? () => _showBreakdownSheet(
+                          context,
+                          AppStrings.savingsThisYear,
+                          data.savingsByServiceThisYear,
+                          currencySymbol,
+                        )
+                    : null,
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  /// Bottom sheet con el desglose por servicio de un periodo (mes o año).
+  /// Se abre al tocar las tarjetas "Este mes" / "Este año" (ahorro) o la
+  /// tarjeta "Gastado este año" (gasto). Muestra la fecha de "Dejar de pagar"
+  /// cuando la suscripción fue cancelada.
+  void _showBreakdownSheet(
+    BuildContext context,
+    String periodTitle,
+    List<SavingsServiceEntry> entries,
+    String currencySymbol, {
+    bool isSavings = true,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.55,
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  Text(
+                    periodTitle,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    AppStrings.savingsBreakdownTitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: entries.isEmpty
+                  ? Center(
+                      child: Text(
+                        isSavings ? AppStrings.savingsBreakdownEmpty : AppStrings.savingsSpendEmpty,
+                        style: const TextStyle(color: AppColors.secondary),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      itemCount: entries.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        final Color accent = isSavings ? AppColors.success : AppColors.danger;
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isSavings ? Icons.check_circle : Icons.payments_outlined,
+                                  color: accent,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      entry.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.onSurface,
+                                      ),
+                                    ),
+                                    if (entry.cancelledAt != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        AppStrings.savingsCancelledOn(du.formatDate(entry.cancelledAt!)),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.secondary,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    isSavings
+                                        ? '+${du.formatCurrency(entry.amount, currencySymbol)}'
+                                        : du.formatCurrency(entry.amount, currencySymbol),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                      color: accent,
+                                    ),
+                                  ),
+                                  // Importe de la cuota en pequeño, para el gasto
+                                  // (ej. "8,99 € / mes").
+                                  if (!isSavings &&
+                                      entry.cycle != null &&
+                                      entry.periodAmount != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      entry.cycle == BillingCycle.yearly
+                                          ? AppStrings.savingsPerYear(
+                                              du.formatCurrency(entry.periodAmount!, currencySymbol))
+                                          : AppStrings.savingsPerMonth(
+                                              du.formatCurrency(entry.periodAmount!, currencySymbol)),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.secondary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
     );
   }
 
@@ -475,6 +722,7 @@ class _KpiCard extends StatelessWidget {
     required this.currencySymbol,
     required this.icon,
     this.isHighlight = false,
+    this.onTap,
   });
 
   final String title;
@@ -482,51 +730,69 @@ class _KpiCard extends StatelessWidget {
   final String currencySymbol;
   final IconData icon;
   final bool isHighlight;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isHighlight ? AppColors.primary : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: isHighlight 
-                ? AppColors.primary.withValues(alpha: 0.3) 
-                : AppColors.onSurface.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            color: isHighlight ? Colors.white70 : AppColors.secondary.withValues(alpha: 0.5),
-            size: 24,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isHighlight ? Colors.white70 : AppColors.secondary,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isHighlight ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: isHighlight 
+                  ? AppColors.primary.withValues(alpha: 0.3) 
+                  : AppColors.onSurface.withValues(alpha: 0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 4),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '+${du.formatCurrency(amount, currencySymbol)}',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: isHighlight ? Colors.white : AppColors.onSurface,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isHighlight ? Colors.white70 : AppColors.secondary.withValues(alpha: 0.5),
+                  size: 24,
+                ),
+                const Spacer(),
+                // Indicador de que la tarjeta es interactiva (abre el desglose).
+                if (onTap != null)
+                  Icon(
+                    Icons.chevron_right,
+                    color: isHighlight
+                        ? Colors.white70
+                        : AppColors.secondary.withValues(alpha: 0.5),
+                    size: 20,
+                  ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: isHighlight ? Colors.white70 : AppColors.secondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '+${du.formatCurrency(amount, currencySymbol)}',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: isHighlight ? Colors.white : AppColors.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

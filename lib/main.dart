@@ -9,6 +9,8 @@ import 'package:workmanager/workmanager.dart';
 import 'core/background/background_worker.dart';
 import 'core/constants/app_strings.dart';
 import 'core/navigation/app_router.dart';
+import 'core/services/ad_service.dart';
+import 'core/services/billing_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 
@@ -47,6 +49,20 @@ void main() async {
 
   final NotificationService notificationService = NotificationService();
   await initServices(notificationService);
+
+  // Inicializar AdMob + consentimiento GDPR (UMP) SOLO en la versión FREE:
+  // un usuario Premium no debe ver ni el formulario de consentimiento ni
+  // cargar el SDK (no consume recursos ni muestra anuncios).
+  final prefs = await SharedPreferences.getInstance();
+  final isPremium = prefs.getBool('settings_is_premium') ?? false;
+  if (!isPremium) {
+    // ignore: unawaited_futures
+    AdService.initMobileAds();
+  } else {
+    // ignore: avoid_print
+    print('[ADS] ⏭️ Usuario PREMIUM: AdMob no se inicializa.');
+  }
+
   runApp(
     ProviderScope(
       overrides: [
@@ -75,12 +91,51 @@ class ByeBillApp extends ConsumerStatefulWidget {
 }
 
 class _ByeBillAppState extends ConsumerState<ByeBillApp> {
+  AppLifecycleListener? _lifecycleListener;
+
   @override
   void initState() {
     super.initState();
+    // Cuando la app vuelve a primer plano, se ruedan las suscripciones que
+    // hayan caducado mientras estaba cerrada (la fecha de cobro avanza un
+    // ciclo mensual/anual) y se reprograman sus alertas. Al arrancar el
+    // provider ya hace el rolling en build(); este listener cubre la
+    // reanudación desde segundo plano.
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        // ignore: unawaited_futures
+        ref.read(subscriptionListProvider.notifier).rollExpiredCharges();
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // Verificar si el plan Premium ha expirado (downgrade automático a FREE:
+      // reinicia la hora de notificación y reprograma las alertas).
+      await ref
+          .read(settingsProvider.notifier)
+          .checkExpirationAndDowngradeIfNeeded();
+
+      // Inicializar Play Billing: escucha de compras + precarga de precios.
+      // onPremiumGranted se reasigna aquí para cuidar restauraciones/renovaciones
+      // recibidas mientras la app está abierta desde cualquier pantalla.
+      final billing = ref.read(billingServiceProvider);
+      billing.onPremiumGranted = (productId, expiryTs) =>
+          ref.read(settingsProvider.notifier).grantPremium(productId, expiryTs);
+      await billing.init();
+
       final notifService = ref.read(notificationServiceProvider);
       
+      // Pedir exención de optimización de batería y permiso de alarmas exactas:
+      // sin ellos, `exactAllowWhileIdle` falla y Android cae al modo impreciso,
+      // que entrega las notificaciones con retraso (típico ~1 h, sobre todo en
+      // Xiaomi/MIUI). Se hace en cada arranque sin ser invasivo: Android solo
+      // muestra el diálogo la primera vez que se concede/procesa la petición.
+      try {
+        await notifService.requestIgnoreBatteryOptimizations();
+      } catch (e) {
+        // ignore: avoid_print
+        print('[NOTIF] Error pidiendo exención de batería/alarmas exactas: $e');
+      }
+
       // Intentar pedir el permiso de forma nativa primero
       bool hasPermission = await notifService.requestPermissionsIfNeeded(inContext: true);
       
@@ -120,6 +175,12 @@ class _ByeBillAppState extends ConsumerState<ByeBillApp> {
         }
       } catch (_) {}
     });
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener?.dispose();
+    super.dispose();
   }
 
   @override

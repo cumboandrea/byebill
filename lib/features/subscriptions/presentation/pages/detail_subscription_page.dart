@@ -11,6 +11,7 @@ import '../../domain/enums/subscription_type.dart';
 import '../providers/subscription_detail_provider.dart';
 import '../providers/subscription_list_provider.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/ad_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
 import '../../../../core/constants/app_strings.dart';
@@ -172,6 +173,36 @@ class _DetailContent extends StatelessWidget {
                   ),
                 ],
               ),
+              if (subscription.description != null &&
+                  subscription.description!.trim().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.notes_outlined,
+                          size: 18, color: AppColors.secondary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          subscription.description!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -222,6 +253,16 @@ class _DetailContent extends StatelessWidget {
                             color: AppColors.onSurface,
                           ),
                         ),
+                        if (subscription.startDate != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Desde: ${du.formatDate(subscription.startDate!)}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -235,6 +276,9 @@ class _DetailContent extends StatelessWidget {
                       icon: Icons.repeat,
                       label: 'Ciclo',
                       value: subscription.cycle.label,
+                      valueBadge: subscription.type == SubscriptionType.freeTrial
+                          ? AppStrings.freeTrialBadge
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -319,7 +363,7 @@ class _DetailContent extends StatelessWidget {
         if (subscription.cancelledAt != null) ...[
           const SizedBox(height: 4),
           Text(
-            'Cancelada el: ${du.formatDate(subscription.cancelledAt!)}',
+            'Dejaste de pagar el: ${du.formatDate(subscription.cancelledAt!)}',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.success,
@@ -575,12 +619,14 @@ class _InfoTile extends StatelessWidget {
     required this.value,
     required this.icon,
     this.highlight = false,
+    this.valueBadge,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final bool highlight;
+  final String? valueBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -607,13 +653,36 @@ class _InfoTile extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: highlight ? AppColors.warning : AppColors.onSurface,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: highlight ? AppColors.warning : AppColors.onSurface,
+                ),
+              ),
+              if (valueBadge != null) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    valueBadge!,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.success,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -781,34 +850,107 @@ class _ActionsBar extends ConsumerWidget {
             height: 56,
             child: ElevatedButton.icon(
               onPressed: () async {
+                // Fecha en la que el usuario dejó de pagar. Por defecto hoy,
+                // pero admite retroactividad: si la suscripción se renovó
+                // automáticamente porque el usuario no abrió la app, puede
+                // indicar que realmente la interrumpió el día que caducó.
+                DateTime cancelledAt = DateTime.now();
                 final confirm = await showDialog<bool>(
                   context: context,
-                  builder: (c) => AlertDialog(
-                    title: const Text('Confirmar cancelación'),
-                    content: Text(AppStrings.detailCancelConfirm),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(c, false),
-                        child: const Text('Volver'),
+                  builder: (c) => StatefulBuilder(
+                    builder: (c, setState) => AlertDialog(
+                      title: const Text('Confirmar cancelación'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(AppStrings.detailCancelConfirm),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      AppStrings.cancelSinceLabel,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.secondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      du.formatDate(cancelledAt),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: IconButton(
+                                  onPressed: () async {
+                                    final picked = await showDatePicker(
+                                      context: c,
+                                      initialDate: cancelledAt,
+                                      firstDate: DateTime(2000),
+                                      lastDate: DateTime.now(),
+                                    );
+                                    if (picked != null) {
+                                      setState(() => cancelledAt = picked);
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.event,
+                                    size: 22,
+                                    color: AppColors.primary,
+                                  ),
+                                  tooltip: AppStrings.cancelChangeDate,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      FilledButton(
-                        style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStatePropertyAll(AppColors.success),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(c, false),
+                          child: const Text('Volver'),
                         ),
-                        onPressed: () => Navigator.pop(c, true),
-                        child: Text(
-                          AppStrings.detailCancelConfirmCta,
-                          style: const TextStyle(color: Colors.white),
+                        FilledButton(
+                          style: ButtonStyle(
+                            backgroundColor:
+                                WidgetStatePropertyAll(AppColors.success),
+                          ),
+                          onPressed: () => Navigator.pop(c, true),
+                          child: Text(
+                            AppStrings.detailCancelConfirmCta,
+                            style: const TextStyle(color: Colors.white),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
                 if (confirm == true) {
                   await ref
                       .read(subscriptionListProvider.notifier)
-                      .markCancelled(subscription.id);
+                      .markCancelled(subscription.id, cancelledAt: cancelledAt);
+                  // Intersticial tras la acción completada (solo FREE y
+                  // como mucho 1 cada 15 min). No bloquea la navegación.
+                  if (ref.read(adsEnabledProvider)) {
+                    // ignore: unawaited_futures
+                    ref.read(adServiceProvider).maybeShowInterstitial();
+                  }
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -922,6 +1064,16 @@ class _ActionsBar extends ConsumerWidget {
             ),
             icon: const Icon(Icons.delete_outline, size: 18),
             label: Text(AppStrings.detailDeleteCta),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          AppStrings.detailDeleteHint,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.4,
+            color: AppColors.onSurface.withValues(alpha: 0.5),
           ),
         ),
       ],

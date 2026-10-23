@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/services/billing_service.dart';
 import '../../../../core/services/calendar_service.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../subscriptions/domain/enums/subscription_status.dart';
@@ -14,6 +15,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   static const _keyTimeHour = 'settings_time_hour';
   static const _keyTimeMinute = 'settings_time_minute';
   static const _keyIsPremium = 'settings_is_premium';
+  static const _keyPremiumPlan = 'settings_premium_plan';
+  static const _keyPremiumUntil = 'settings_premium_until';
   static const _keyCalendarEnabled = 'settings_calendar_enabled';
   static const _keyCalendarKind = 'settings_calendar_kind';
   static const _keyCalendarId = 'settings_calendar_id';
@@ -34,6 +37,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       currency: currency,
       notificationTime: TimeOfDay(hour: hour, minute: minute),
       isPremium: isPremium,
+      premiumPlan: prefs.getString(_keyPremiumPlan),
+      premiumUntilTs: prefs.getInt(_keyPremiumUntil) ?? 0,
       calendarEnabled: prefs.getBool(_keyCalendarEnabled) ?? false,
       calendarKind: prefs.getString(_keyCalendarKind),
       calendarId: prefs.getString(_keyCalendarId),
@@ -83,6 +88,34 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       );
       await _reprogramActiveSubscriptions();
     }
+  }
+
+  /// Aplica un plan Premium comprado/restaurado desde el store: guarda el plan
+  /// y su fecha de expiración y activa el modo Premium.
+  Future<void> grantPremium(String plan, int untilTs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyPremiumPlan, plan);
+    await prefs.setInt(_keyPremiumUntil, untilTs);
+    await setPremium(true);
+  }
+
+  /// Comprueba si el Premium ha expirado (suscripción que no se ha renovado)
+  /// y, si es así, revierte automáticamente a la versión FREE con la misma
+  /// lógica del downgrade (hora 09:00 por defecto + reprogramación de alertas
+  /// y eventos de calendario sin el aviso de 7 días).
+  Future<void> checkExpirationAndDowngradeIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!(prefs.getBool(_keyIsPremium) ?? false)) return;
+
+    final plan = prefs.getString(_keyPremiumPlan);
+    final untilTs = prefs.getInt(_keyPremiumUntil) ?? 0;
+    if (plan == null || plan == PremiumProductIds.lifetime) return;
+    if (untilTs <= 0) return; // sin fecha guardada: no forzar el downgrade
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (untilTs >= nowSec) return;
+
+    await prefs.setInt(_keyPremiumUntil, 0);
+    await setPremium(false);
   }
 
   /// Cancela y reprograma las alertas de las suscripciones activas con los

@@ -185,7 +185,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.history_toggle_off, size: 64, color: AppColors.surface),
+          Icon(Icons.history_toggle_off, size: 64, color: AppColors.primary),
           const SizedBox(height: 16),
           Text(
             AppStrings.historyEmptyTitle,

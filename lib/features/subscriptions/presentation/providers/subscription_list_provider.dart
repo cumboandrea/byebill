@@ -7,13 +7,25 @@ import '../../domain/enums/subscription_status.dart';
 import '../../domain/enums/subscription_type.dart';
 import '../../data/providers.dart';
 import 'subscription_detail_provider.dart';
+import 'renewal_notices_provider.dart';
 import '../../../../core/services/calendar_service.dart';
 import '../../../../core/services/notification_service.dart';
 
 class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
   @override
   Future<List<Subscription>> build() async {
-    final repo = await ref.watch(subscriptionRepositoryProvider.future);
+    await _rollExpiredCharges();
+    final repo = await ref.read(subscriptionRepositoryProvider.future);
+    return repo.getAll();
+  }
+
+  /// Rueda la fecha de cobro de las suscripciones activas que hayan caducado:
+  /// una suscripción de pago que debería haberse cobrado ayer se entiende como
+  /// "sigue pagando", por lo que avanza su `chargeDate` un ciclo (1 mes o 1 año)
+  /// hasta la próxima fecha futura; una prueba gratuita caducada pasa a
+  /// `expired`. Devuelve `true` si hubo algún cambio en la base de datos.
+  Future<bool> _rollExpiredCharges() async {
+    final repo = await ref.read(subscriptionRepositoryProvider.future);
     final subs = await repo.getAll();
     bool updated = false;
     final now = DateTime.now();
@@ -36,6 +48,14 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
           await ns.cancelAlertsForSubscription(s.id);
           await ns.scheduleAlertsForSubscription(updatedSub);
           await ref.read(calendarServiceProvider).syncSubscription(updatedSub);
+          // Aviso en el Centro de Alertas: la suscripción se renovó
+          // automáticamente el día en que caducó (sin intervención del usuario).
+          await ref.read(renewalNoticesProvider.notifier).recordRenewal(
+                subscriptionId: s.id,
+                name: s.name,
+                logoPath: s.logoPath,
+                renewedAt: s.chargeDate,
+              );
           updated = true;
         } else if (s.type == SubscriptionType.freeTrial) {
           final expiredSub = s.copyWith(status: SubscriptionStatus.expired);
@@ -45,11 +65,19 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
         }
       }
     }
+    return updated;
+  }
 
-    if (updated) {
+  /// Ejecuta el rolling de caducidad sin reconstruir el provider, para poder
+  /// llamarlo desde el ciclo de vida de la app (p. ej. al reanudarla) sin
+  /// esperar a que se invalide el estado.
+  Future<void> rollExpiredCharges() async {
+    final updated = await _rollExpiredCharges();
+    if (!updated) return;
+    state = await AsyncValue.guard(() async {
+      final repo = await ref.read(subscriptionRepositoryProvider.future);
       return repo.getAll();
-    }
-    return subs;
+    });
   }
 
   Future<Subscription> addSubscription({
@@ -62,6 +90,8 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
     String? cancellationUrl,
     String? logoPath,
     DateTime? startDate,
+    String? category,
+    String? description,
   }) async {
     final repo = await ref.read(subscriptionRepositoryProvider.future);
     final notificationService = ref.read(notificationServiceProvider);
@@ -79,6 +109,8 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
       cancellationUrl: cancellationUrl,
       logoPath: logoPath,
       startDate: startDate,
+      category: category,
+      description: description,
     );
     state = await AsyncValue.guard(() async {
       await repo.add(sub);
@@ -93,7 +125,14 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
     return sub;
   }
 
-  Future<void> markCancelled(String id) async {
+  /// Marca una suscripción como cancelada ("dejar de pagar").
+  ///
+  /// `cancelledAt` permite indicar una fecha retroactiva: si la suscripción
+  /// ya se renovó automáticamente (rolling) porque el usuario no abrió la app,
+  /// este parámetro permite registrar que realmente dejó de pagarla antes
+  /// (p. ej. el día en que caducó) para que los cálculos de Ahorro no cuenten
+  /// cobros que no se produjeron. Por defecto se usa hoy.
+  Future<void> markCancelled(String id, {DateTime? cancelledAt}) async {
     final repo = await ref.read(subscriptionRepositoryProvider.future);
     final ns = ref.read(notificationServiceProvider);
     final cs = ref.read(calendarServiceProvider);
@@ -103,7 +142,7 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
       if (s == null) return state.valueOrNull ?? [];
       final cancelled = s.copyWith(
         status: SubscriptionStatus.cancelled,
-        cancelledAt: DateTime.now(),
+        cancelledAt: cancelledAt ?? DateTime.now(),
       );
       await repo.update(cancelled);
       await ns.cancelAlertsForSubscription(id);
@@ -181,16 +220,21 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
     final ns = ref.read(notificationServiceProvider);
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
+      // Necesitamos la suscripción completa para borrar sus eventos de
+      // calendario por título (no solo el eventId registrado en el mapa).
+      final sub = await repo.getById(id);
       // Intentamos cancelar las notificaciones, pero si falla no bloqueamos el borrado
       try {
         await ns.cancelAlertsForSubscription(id);
       } catch (e) {
         print('Error cancelling alerts: $e');
       }
-      try {
-        await ref.read(calendarServiceProvider).removeEventForSubscription(id);
-      } catch (e) {
-        print('Error removing calendar event: $e');
+      if (sub != null) {
+        try {
+          await ref.read(calendarServiceProvider).removeEventsForSubscription(sub);
+        } catch (e) {
+          print('Error removing calendar event: $e');
+        }
       }
       
       await repo.delete(id);
@@ -218,6 +262,11 @@ class SubscriptionListNotifier extends AsyncNotifier<List<Subscription>> {
         await cs.removeAllTrackedEvents();
       } catch (e) {
         print('Error eliminando eventos de calendario: $e');
+      }
+      try {
+        await ref.read(renewalNoticesProvider.notifier).clearAll();
+      } catch (e) {
+        print('Error limpiando avisos de renovación: $e');
       }
       await repo.deleteAll();
       return repo.getAll();

@@ -39,17 +39,33 @@ class AppStrings {
   );
   
   static String get onboardingCta => t('Empezar', 'Get Started', 'Inizia');
+  static String get onboardingSkip => t('Omitir', 'Skip', 'Salta');
+  static String get onboardingNext => t('Continuar', 'Continue', 'Continua');
+
+  static String get onboardingSlide2Title => t('Avisos antes de cada cobro', 'Alerts before payment', 'Avvisi prima di ogni addebito');
+  static String get onboardingSlide2Subtitle => t(
+    'Te avisamos con antelación para que decidas tú: renovar o cancelar.',
+    'We alert you in advance so you decide: renew or cancel.',
+    'Ti avvisiamo in anticipo così decidi tu: rinnovare o cancellare.'
+  );
+
+  static String get onboardingSlide3Title => t('Descubre cuánto ahorras', 'See how much you save', 'Scopri quanto risparmi');
+  static String get onboardingSlide3Subtitle => t(
+    'Cancela en un clic y mira mes a mes todo lo que te estás ahorrando.',
+    'Cancel in one click and track month by month everything you save.',
+    'Cancella in un clic e guarda mese per mese tutto quello che risparmi.'
+  );
   
   static String get homeSavedTitle => t('Te has ahorrado:', 'You have saved:', 'Hai risparmiato:');
   
   static String get homeGreeting => t('Hola', 'Hello', 'Ciao');
   static String get homeExpiringSubtitle => t(
-    'Tienes pruebas a punto de renovarse esta semana. ¡Evita cobros fantasma!',
-    'You have trials renewing this week. Avoid ghost charges!',
-    'Hai prove in scadenza questa settimana. Evita addebiti fantasma!'
+    'Tienes cobros o pruebas pendientes esta semana. ¡Evita sustos!',
+    'You have charges or trials due this week. Avoid surprises!',
+    'Hai addebiti o prove in scadenza questa settimana. Evita sorprese!'
   );
   static String get homeAttentionRequired => t('Atención requerida', 'Attention required', 'Attenzione richiesta');
-  static String homeTrialsCount(int count) => t('$count pruebas', '$count trials', '$count prove');
+  static String homeExpiringCount(int count) => t('$count avisos', '$count alerts', '$count avvisi');
   
   static String get homeActiveSubs => t('Suscripciones activas', 'Active subscriptions', 'Abbonamenti attivi');
   
@@ -75,6 +91,11 @@ class AppStrings {
   
   static String get savingsTitle => t('Ahorro', 'Savings', 'Risparmio');
   static String get savingsMonthlySpend => t('Gasto mensual activo', 'Active monthly spend', 'Spesa mensile attiva');
+  static String get savingsSpentThisYear => t('Gastado este año', 'Spent this year', 'Speso quest\'anno');
+  static String savingsCancelledOn(String date) => t('Cancelado el $date', 'Cancelled on $date', 'Cancellato il $date');
+  static String savingsPerMonth(String amount) => t('($amount / mes)', '($amount / month)', '($amount / mese)');
+  static String savingsPerYear(String amount) => t('($amount / año)', '($amount / year)', '($amount / anno)');
+  static String get savingsSpendEmpty => t('Sin gasto todavía este año', 'No spending yet this year', 'Nessuna spesa ancora quest\'anno');
   static String get savingsSpendEvolutionTitle => t('Evolución del Gasto', 'Spend Evolution', 'Evoluzione della Spesa');
   static String get savingsSpendEvolutionEmpty => t(
     'El gráfico de evolución aparecerá cuando tengas gastos registrados en meses anteriores.', 
@@ -83,6 +104,8 @@ class AppStrings {
   );
   static String get savingsThisMonth => t('Este mes', 'This month', 'Questo mese');
   static String get savingsThisYear => t('Este año', 'This year', 'Quest\'anno');
+  static String get savingsBreakdownTitle => t('Desglose por servicio', 'By service', 'Dettaglio per servizio');
+  static String get savingsBreakdownEmpty => t('Sin ahorros todavía en este periodo', 'No savings yet in this period', 'Nessun risparmio ancora in questo periodo');
   static String get savingsTotal => t('Total ahorrado', 'Total saved', 'Totale risparmiato');
   static String get savingsTopServices => t('Tus mayores ahorros', 'Top savings', 'I tuoi maggiori risparmi');
   static String get savingsEquivalenceTitle => t('¿A qué equivale?', 'What does this mean?', 'A cosa equivale?');
@@ -121,7 +144,7 @@ class AppStrings {
   static String get addSaveCta => t('Guardar suscripción', 'Save subscription', 'Salva abbonamento');
   
   static String get detailTitle => t('Detalle suscripción', 'Subscription details', 'Dettagli abbonamento');
-  static String get detailCancelCta => t('Marcar como cancelada', 'Mark as cancelled', 'Segna come cancellato');
+  static String get detailCancelCta => t('Dejar de pagar', 'Stop paying', 'Smetti di pagare');
   static String get detailEditCta => t('Editar', 'Edit', 'Modifica');
   static String get detailDeleteCta => t('Eliminar suscripción', 'Delete subscription', 'Elimina abbonamento');
   
@@ -132,6 +155,7 @@ class AppStrings {
   
   static String get cycleMonthly => t('Mensual', 'Monthly', 'Mensile');
   static String get cycleAnnual => t('Anual', 'Annual', 'Annuale');
+  static String get freeTrialBadge => t('Gratuita', 'Free', 'Gratuita');
   
   static String get detailDeleteConfirm => t(
     '¿Estás seguro de eliminar esta suscripción?\nDesaparecerá completamente de la base de datos y no se mostrará en el Histórico.',
@@ -139,13 +163,33 @@ class AppStrings {
     'Sei sicuro di voler eliminare questo abbonamento?\nVerrà rimosso completamente dal database e non apparirà nello Storico.'
   );
   static String get detailDeleteConfirmCta => t('Eliminar', 'Delete', 'Elimina');
+  static String get detailDeleteHint => t(
+    'Esta suscripción se eliminará por completo y no se tendrá en cuenta en los cálculos de Ahorro.',
+    'This subscription will be permanently removed and won\'t be taken into account in Savings calculations.',
+    'Questo abbonamento verrà eliminato completamente e non sarà considerato nei calcoli del Risparmio.'
+  );
   
   static String get detailCancelConfirm => t(
-    '¿Confirmas que has cancelado esta suscripción?\nDejarás de recibir alertas.',
-    'Do you confirm you have cancelled this subscription?\nYou will stop receiving alerts.',
-    'Confermi di aver cancellato questo abbonamento?\nSmetterai di ricevere avvisi.'
+    '¿Confirmas que has dejado de pagar esta suscripción?\nSi la dejaste de pagar hace unos días, indica la fecha exacta para que el Ahorro no cuente cobros que no se produjeron.',
+    'Do you confirm you have stopped paying for this subscription?\nIf you stopped paying a few days ago, set the exact date so Savings doesn\'t count charges that never happened.',
+    'Confermi che hai smesso di pagare questo abbonamento?\nSe hai smesso di pagare qualche giorno fa, indica la data esatta così il Risparmio non conta addebiti mai avvenuti.'
   );
-  static String get detailCancelConfirmCta => t('Confirmar cancelación', 'Confirm cancellation', 'Conferma cancellazione');
+  static String get detailCancelConfirmCta => t('Sí, dejar de pagar', 'Yes, stop paying', 'Sì, smetti di pagare');
+  static String get cancelSinceLabel => t(
+    'Dejé de pagar el',
+    'I stopped paying on',
+    'Ho smesso di pagare il'
+  );
+  static String get cancelChangeDate => t(
+    'Cambiar fecha',
+    'Change date',
+    'Cambia data'
+  );
+  static String get cancelFutureDateHint => t(
+    'No puede ser una fecha futura',
+    'It cannot be a future date',
+    'Non può essere una data futura'
+  );
   
   static String get tileExpired => t('Caducada', 'Expired', 'Scaduta');
   static String tileDaysLeft(int days) => t('Quedan $days días', '$days days left', 'Mancano $days giorni');
@@ -155,7 +199,7 @@ class AppStrings {
   static String tileNextCharge(String date, String price) => t('Próximo cobro: $date · $price/mes', 'Next charge: $date · $price/mo', 'Prossimo addebito: $date · $price/mese');
 
   static String get snackbarSaved => t('Suscripción guardada', 'Subscription saved', 'Abbonamento salvato');
-  static String get snackbarCancelled => t('¡Suscripción cancelada! Ahorro registrado', 'Subscription cancelled! Savings recorded', 'Abbonamento cancellato! Risparmio registrato');
+  static String get snackbarCancelled => t('Dejaste de pagar. ¡Ahorro registrado!', 'You stopped paying. Savings recorded!', 'Hai smesso di pagare. Risparmio registrato!');
   static String get snackbarDeleted => t('Suscripción eliminada', 'Subscription deleted', 'Abbonamento eliminato');
   static String get snackbarUpdated => t('Suscripción actualizada', 'Subscription updated', 'Abbonamento aggiornato');
   
@@ -203,6 +247,21 @@ class AppStrings {
   static String get premiumPlanLifetimeDesc => t('pago único', 'one-time payment', 'pagamento unico');
   static String get premiumMostPopular => t('MÁS POPULAR', 'MOST POPULAR', 'PIÙ POPOLARE');
 
+  // Perfil
+  static String get profileTitle => t('Perfil', 'Profile', 'Profilo');
+  static String get profilePremiumStatus => t('Estado del plan', 'Plan status', 'Stato del piano');
+  static String get profilePremiumActive => t('Premium activo', 'Premium active', 'Premium attivo');
+  static String get profileFree => t('Plan gratuito', 'Free plan', 'Piano gratuito');
+  static String get profileUpgradeCta => t('Hazte Premium', 'Go Premium', 'Passa a Premium');
+  static String get profileUpgradeSubtitle => t('Sin anuncios y avisos con 7 días de antelación.', 'No ads and 7-day advance alerts.', 'Niente pubblicità e avvisi con 7 giorni di anticipo.');
+  static String profilePlanExpires(String date) => t('Caduca el $date', 'Expires on $date', 'Scade il $date');
+  static String get profilePlanNeverExpires => t('No caduca nunca', 'Never expires', 'Non scade mai');
+  static String get profileCuriousData => t('Tu año en ByeBill', 'Your year in ByeBill', 'Il tuo anno in ByeBill');
+  static String get profileTopSpends => t('Tus 3 suscripciones más caras', 'Your 3 most expensive subscriptions', 'I tuoi 3 abbonamenti più costosi');
+  static String get profileSavedThisYear => t('Ahorrado este año', 'Saved this year', 'Risparmiato quest\'anno');
+  static String get profileSavedAllTime => t('Ahorrado en total', 'Saved in total', 'Risparmiato in totale');
+  static String get profileNoData => t('Aún no hay datos.', 'No data yet.', 'Ancora nessun dato.');
+
   // Alertas
   static String get alertsTitle => t('Centro de Alertas', 'Alert Center', 'Centro Avvisi');
   static String get alertsEmpty => t('Todo tranquilo por aquí.', 'All quiet here.', 'Tutto tranquillo qui.');
@@ -212,6 +271,8 @@ class AppStrings {
   static String alertsChargeSoon(String name, int days) => t('Cobro de $name en $days días', 'Charge for $name in $days days', 'Addebito per $name in $days giorni');
   static String get alertsSavingsTitle => t('¡Buen trabajo!', 'Great job!', 'Ottimo lavoro!');
   static String alertsSavings(String amount) => t('Has ahorrado $amount este mes.', 'You saved $amount this month.', 'Hai risparmiato $amount questo mese.');
+  static String get alertsRenewedTitle => t('Renovación automática', 'Auto-renewed', 'Rinnovo automatico');
+  static String alertsRenewed(String name, String date) => t('$name se ha renovado automáticamente el $date', '$name auto-renewed on $date', '$name si è rinnovato automaticamente il $date');
   static String get alertsPremiumTitle => t('Mejora tus notificaciones', 'Upgrade notifications', 'Migliora le notifiche');
   static String get alertsPremiumUpsell => t('Pásate a Premium para alertas con 7 días de antelación.', 'Go Premium for 7-day advance alerts.', 'Passa a Premium per avvisi con 7 giorni di anticipo.');
 

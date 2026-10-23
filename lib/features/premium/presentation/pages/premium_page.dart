@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:math';
 
+import '../../../../core/services/billing_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../settings/presentation/providers/settings_provider.dart';
@@ -17,6 +18,7 @@ class PremiumPage extends ConsumerStatefulWidget {
 class _PremiumPageState extends ConsumerState<PremiumPage> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   int _selectedPlanIndex = 2; // 0: Mensual, 1: Anual, 2: De por vida
+  bool _buying = false;
   
   @override
   void initState() {
@@ -25,10 +27,73 @@ class _PremiumPageState extends ConsumerState<PremiumPage> with SingleTickerProv
       vsync: this,
       duration: const Duration(seconds: 10),
     )..repeat();
+
+    final billing = ref.read(billingServiceProvider);
+    // Cuando una compra o restauración se completa, aplica el plan en los
+    // ajustes (Guardarlo en SharedPreferences + activar Premium).
+    billing.onPremiumGranted = (productId, expiryTs) =>
+        ref.read(settingsProvider.notifier).grantPremium(productId, expiryTs);
+    // Apaga el spinner cuando el flujo de compra/restauración termina
+    // (éxito, error o cancelación), porque es el único caso en que no llega
+    // la notificación vía isPremium.
+    billing.purchasing.addListener(_onPurchasingChanged);
+    // Precarga precios y escucha el flujo de compras (idempotente).
+    // ignore: unawaited_futures
+    billing.init();
+  }
+
+  void _onPurchasingChanged() {
+    if (!mounted || !_buying) return;
+    if (ref.read(billingServiceProvider).purchasing.value) return;
+    // El flujo terminó sin conceder el plan (fallo o cancelación).
+    setState(() => _buying = false);
+  }
+
+  /// Lanza la compra del plan seleccionado.
+  Future<void> _buyPlan() async {
+    final productId = switch (_selectedPlanIndex) {
+      0 => PremiumProductIds.monthly,
+      1 => PremiumProductIds.yearly,
+      _ => PremiumProductIds.lifetime,
+    };
+
+    setState(() => _buying = true);
+    final ok = await ref.read(billingServiceProvider).buy(productId);
+    if (!mounted) return;
+    if (!ok) {
+      _showError(AppStrings.t(
+        'No se pudo iniciar el proceso de compra. Inténtalo de nuevo.',
+        'Unable to start the purchase. Please try again.',
+        'Impossibile avviare l\'acquisto. Riprova.',
+      ));
+    }
+  }
+
+  /// Restaura compras anteriores (al reinstalar o cambiar de dispositivo).
+  Future<void> _restorePurchases() async {
+    setState(() => _buying = true);
+    final ok = await ref.read(billingServiceProvider).restore();
+    if (!mounted) return;
+    if (!ok) {
+      _showError(AppStrings.t(
+        'No se pudo restaurar las compras. Inténtalo de nuevo.',
+        'Unable to restore purchases. Please try again.',
+        'Impossibile ripristinare gli acquisti. Riprova.',
+      ));
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   void dispose() {
+    final billing = ref.read(billingServiceProvider);
+    billing.purchasing.removeListener(_onPurchasingChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -37,6 +102,10 @@ class _PremiumPageState extends ConsumerState<PremiumPage> with SingleTickerProv
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
     final isPremium = settingsAsync.valueOrNull?.isPremium ?? false;
+    // Gira el spinner mientras se compra/restaura; se apaga solo cuando el
+    // plan ya está concedido (el watch cambia isPremium) o si la compra falla
+    // antes de arrancar (en cuyo caso _buying se resetea en _buyPlan).
+    final showBuySpinner = _buying && !isPremium;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -201,15 +270,15 @@ class _PremiumPageState extends ConsumerState<PremiumPage> with SingleTickerProv
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: () {
-                              // Aquí iría la lógica de compras In-App
-                              // Para la demo, simplemente cerramos si ya es premium
-                              if (isPremium) {
-                                context.pop();
-                              } else {
-                                // Lógica de In-App Purchase de Google/Apple
-                              }
-                            },
+                            onPressed: _buying
+                                ? null
+                                : () {
+                                    if (isPremium) {
+                                      context.pop();
+                                    } else {
+                                      _buyPlan();
+                                    }
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isPremium ? Colors.grey.shade400 : AppColors.primary,
                               foregroundColor: Colors.white,
@@ -218,23 +287,30 @@ class _PremiumPageState extends ConsumerState<PremiumPage> with SingleTickerProv
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                            child: Text(
-                              isPremium 
-                                ? AppStrings.t('Ya eres Premium', 'You are Premium', 'Sei già Premium')
-                                : _getCTAButtonText(settingsAsync.valueOrNull?.currency ?? '€'),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            child: showBuySpinner
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : Text(
+                                    isPremium
+                                      ? AppStrings.t('Ya eres Premium', 'You are Premium', 'Sei già Premium')
+                                      : _getCTAButtonText(settingsAsync.valueOrNull?.currency ?? '€'),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                           ),
                         ),
                         if (!isPremium) ...[
                           const SizedBox(height: 16),
                           GestureDetector(
-                            onTap: () {
-                              // Restaurar compras
-                            },
+                            onTap: _buying ? null : _restorePurchases,
                             child: Text(
                               AppStrings.t('Restaurar compras', 'Restore purchases', 'Ripristina acquisti'),
                               style: const TextStyle(

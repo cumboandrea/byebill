@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:device_calendar/device_calendar.dart';
@@ -156,13 +157,106 @@ class CalendarService {
       return;
     }
     if (s.status != SubscriptionStatus.active) {
-      await removeEventForSubscription(s.id);
+      await removeEventsForSubscription(s);
       return;
     }
-    // Idempotente: se borra el evento previo (si existe) y se recrea, de modo
-    // que un cambio de fecha/ciclo no deje eventos duplicados.
-    await removeEventForSubscription(s.id);
+    // Idempotente: se borran los eventos previos (incluidos huérfanos por
+    // nombre) y se recrea, de modo que un cambio de fecha/ciclo no deje
+    // eventos duplicados en el calendario.
+    await removeEventsForSubscription(s);
     await _createEventFor(s, prefs);
+  }
+
+  /// Elimina TODOS los eventos de calendario de una suscripción:
+  /// 1. El evento registrado en el mapa interno (`calendar_event_map`).
+  /// 2. Un barrido adicional por título: elimina cualquier evento de la app
+  ///    para esa suscripción que haya quedado huérfano (p. ej. duplicados
+  ///    creados por versiones anteriores o un borrado fallido), buscándolos
+  ///    de forma explícita en el calendario.
+  Future<void> removeEventsForSubscription(Subscription s) async {
+    await removeEventForSubscription(s.id);
+    await _deleteOrphanEventsFor(s);
+  }
+
+  /// Busca en el/los calendario(s) los eventos creados por ByeBill para esta
+  /// suscripción y los elimina, usando el mismo título que usa la app.
+  /// Protección ante duplicados u orfanatos que el mapa interno no conozca.
+  Future<void> _deleteOrphanEventsFor(Subscription s) async {
+    if (!_isCalendarEnabled(await SharedPreferences.getInstance())) {
+      return;
+    }
+    final bool permitted = await hasPermissions();
+    if (!permitted) {
+      return;
+    }
+
+    final Set<String> calendarIds = <String>{};
+    final events = await _loadEvents();
+    for (final entry in events.values) {
+      final String? cid = entry['calendarId'];
+      if (cid != null && cid.isNotEmpty) {
+        calendarIds.add(cid);
+      }
+    }
+    final String? stored = await _resolveCalendarId();
+    if (stored != null) {
+      calendarIds.add(stored);
+    }
+    if (calendarIds.isEmpty) {
+      return;
+    }
+
+    // El evento se crea en la fecha de cobro (todo el día). Ampliamos el rango
+    // para cubrir fechas cambiadas o ciclos ya rodados.
+    final DateTime startDate = DateTime(s.chargeDate.year - 1, s.chargeDate.month, 1).toLocal();
+    final DateTime endDate = DateTime(
+      s.chargeDate.year + 1,
+      s.chargeDate.month,
+      s.chargeDate.day + 2,
+    ).toLocal();
+
+    for (final calendarId in calendarIds) {
+      try {
+        final Result<UnmodifiableListView<Event>> result =
+            await _plugin.retrieveEvents(
+          calendarId,
+          RetrieveEventsParams(
+            startDate: startDate,
+            endDate: endDate,
+          ),
+        );
+        if (!result.isSuccess || result.data == null) {
+          continue;
+        }
+        for (final event in result.data!) {
+          final String? eventId = event.eventId;
+          if (eventId == null || eventId.isEmpty) {
+            continue;
+          }
+          // Solo los eventos de ByeBill para esta suscripción: descripción con
+          // el marcador "ByeBill" y título "Cobro de X" en el idioma vigente.
+          final String? title = event.title;
+          final String? description = event.description;
+          final bool isByeBill = (description?.contains('ByeBill') ?? false);
+          if (!isByeBill) {
+            continue;
+          }
+          final bool matchesName = title != null &&
+              (title == 'Cobro de ${s.name}' ||
+                  title == 'Charge of ${s.name}' ||
+                  title == 'Cobro di ${s.name}');
+          if (!matchesName) {
+            continue;
+          }
+          await _plugin.deleteEvent(calendarId, eventId);
+          // ignore: avoid_print
+          print('[CAL] Limpieza: borrado evento huérfano $eventId de ${s.name}');
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('[CAL] Error en barrido de eventos de ${s.name}: $e');
+      }
+    }
   }
 
   /// Elimina el evento de calendario de una suscripción (si existe).
@@ -173,7 +267,13 @@ class CalendarService {
       return;
     }
     try {
-      await _plugin.deleteEvent(entry['calendarId'], entry['eventId']);
+      final Result<dynamic> result = await _plugin
+          .deleteEvent(entry['calendarId'], entry['eventId']);
+      if (!result.isSuccess) {
+        // ignore: avoid_print
+        print('[CAL] deleteEvent de $subscriptionId falló: '
+            '${result.errors.isNotEmpty ? result.errors.first.errorMessage : 'sin detalle'}');
+      }
     } catch (e) {
       // ignore: avoid_print
       print('[CAL] Error borrando evento de $subscriptionId: $e');
@@ -288,6 +388,11 @@ class CalendarService {
     Subscription s,
     SharedPreferences prefs,
   ) async {
+    // Blindaje anti-duplicados: aunque el llamador ya suela borrar el evento
+    // previo, forzamos aquí el borrado (si está registrado en el mapa) por si
+    // una ruta anterior falló o quedó un evento huérfano sin registrar.
+    await removeEventForSubscription(s.id);
+
     await _ensureTimezone();
     final DateTime date = s.chargeDate;
     // Para eventos "todo el día", Android exige que DTSTART/DTEND sean a

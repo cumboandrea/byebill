@@ -13,6 +13,7 @@ import '../../features/subscriptions/presentation/pages/main_layout.dart';
 import '../../features/subscriptions/presentation/pages/history_page.dart';
 import '../../features/subscriptions/presentation/pages/savings_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 import '../presentation/pages/splash_page.dart';
 
 class AppRouter {
@@ -100,6 +101,10 @@ class AppRouter {
           builder: (context, state) => DetailSubscriptionPage(
             id: state.pathParameters['id'] ?? '',
           ),
+        ),
+        GoRoute(
+          path: '/profile',
+          builder: (context, state) => const ProfilePage(),
         ),
         GoRoute(
           path: '/premium',

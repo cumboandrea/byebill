@@ -6,6 +6,8 @@ class AppSettings {
     this.currency = '€',
     this.notificationTime = const TimeOfDay(hour: 9, minute: 0),
     this.isPremium = false,
+    this.premiumPlan,
+    this.premiumUntilTs = 0,
     this.calendarEnabled = false,
     this.calendarKind,
     this.calendarId,
@@ -16,6 +18,15 @@ class AppSettings {
   final String currency;
   final TimeOfDay notificationTime;
   final bool isPremium;
+
+  /// Plan Premium comprado ('premium_mensual', 'premium_anual' o
+  /// 'premium_vitalicio'). null si el usuario nunca ha pagado.
+  final String? premiumPlan;
+
+  /// Marca de tiempo UNIX (segundos) en la que expira el Premium
+  /// (0 si no aplica / vitalicio = año 2100).
+  final int premiumUntilTs;
+
   final bool calendarEnabled;
 
   /// Tipo genérico de agenda elegido: 'phone' (calendario del teléfono) o
@@ -34,6 +45,8 @@ class AppSettings {
     String? currency,
     TimeOfDay? notificationTime,
     bool? isPremium,
+    String? premiumPlan,
+    int? premiumUntilTs,
     bool? calendarEnabled,
     String? calendarKind,
     String? calendarId,
@@ -44,6 +57,8 @@ class AppSettings {
       currency: currency ?? this.currency,
       notificationTime: notificationTime ?? this.notificationTime,
       isPremium: isPremium ?? this.isPremium,
+      premiumPlan: premiumPlan ?? this.premiumPlan,
+      premiumUntilTs: premiumUntilTs ?? this.premiumUntilTs,
       calendarEnabled: calendarEnabled ?? this.calendarEnabled,
       calendarKind: calendarKind ?? this.calendarKind,
       calendarId: calendarId ?? this.calendarId,
